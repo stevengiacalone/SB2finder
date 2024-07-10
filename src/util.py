@@ -10,9 +10,14 @@ def spline_fit(x,y,window):
     return ss
 
 def flatspec_spline(x,rawspec,weight, order=8, n_iter = 5, ffrac = 0.985):
+    
+    #If array is decreasing, we apply a flip to make it increasing
+    if x[0] > x[1]:
+        x = np.flip(x)
+        rawspec = np.flip(rawspec)
+        weight = np.flip(weight)
 
     pos = np.where((np.isnan(rawspec)==False) & (np.isnan(weight)==False))[0]
-
 
     ss = spline_fit(x[pos],rawspec[pos],5.)#5 Ang as knot points for flattening continuum
     yfit = ss(x)
@@ -32,7 +37,7 @@ def get_spectrum(file_name, trace_num, color):
     L1_file = file_name
     L1 = fits.open(file_name)
     
-    if color == 'GREEN'
+    if color == 'GREEN':
         if trace_num == 1:
             SCI_WAVE = np.array(L1['GREEN_SCI_WAVE1'].data)
             SCI_FLUX = np.array(L1['GREEN_SCI_FLUX1'].data)
@@ -54,8 +59,3 @@ def get_spectrum(file_name, trace_num, color):
             SCI_FLUX = np.array(L1['RED_SCI_FLUX3'].data)
             
     return SCI_WAVE, SCI_FLUX
-    
-
-    
-    
-    
