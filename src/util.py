@@ -69,7 +69,7 @@ def combine_spectra(synth_wave, synth_flux, wave, flux, rv):
     
     new_wave_synth = synth_wave * (1 + (rv/c/1000))
 
-    flux_interpolated = np.interp(wave, new_wave_synth, flux)
+    flux_interpolated = np.interp(wave, new_wave_synth, synth_flux)
     combine_flux = (flux_interpolated+flux) / 2
     
     return wave, combine_flux
