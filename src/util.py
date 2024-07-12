@@ -3,6 +3,8 @@ import pandas as pd
 import scipy.interpolate as inter 
 from astropy.io import fits
 from astropy.table import Table
+from scipy.constants import c
+from numpy import interp
 
 def spline_fit(x,y,window):
     breakpoint = np.linspace(np.min(x),np.max(x),int((np.max(x)-np.min(x))/window))
@@ -59,3 +61,16 @@ def get_spectrum(file_name, trace_num, color):
             SCI_FLUX = np.array(L1['RED_SCI_FLUX3'].data)
             
     return SCI_WAVE, SCI_FLUX
+
+
+def combine_spectra(synth_wave, synth_flux, wave, flux, rv):
+    #wavelengths and fluxes have been flatten using flatspec_spline
+    #wave and flux are single orders of the spectra
+    
+    new_wave_synth = synth_wave * (1 + (rv/c/1000))
+
+    flux_interpolated = np.interp(wave, new_wave_synth, flux)
+    combine_flux = (flux_interpolated+flux) / 2
+    
+    return wave, combine_flux
+
