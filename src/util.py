@@ -3,8 +3,8 @@ import pandas as pd
 import scipy.interpolate as inter 
 from astropy.io import fits
 from astropy.table import Table
-from scipy.constants import c
-from numpy import interp
+
+c = 3e5 # speed of light in km/s
 
 def spline_fit(x,y,window):
     breakpoint = np.linspace(np.min(x),np.max(x),int((np.max(x)-np.min(x))/window))
@@ -67,7 +67,7 @@ def combine_spectra(synth_wave, synth_flux, wave, flux, rv):
     #wavelengths and fluxes have been flatten using flatspec_spline
     #wave and flux are single orders of the spectra
     
-    new_wave_synth = synth_wave * (1 + (rv/c/1000))
+    new_wave_synth = synth_wave * (1 + (rv/c))
 
     flux_interpolated = np.interp(wave, new_wave_synth, synth_flux)
     combine_flux = (flux_interpolated+flux) / 2
