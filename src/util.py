@@ -56,14 +56,17 @@ def get_spectrum(file_name, trace_num, color):
     return SCI_WAVE, SCI_FLUX
 
 
-def combine_spectra(synth_wave, synth_flux, wave, flux, rv):
+def combine_spectra(synth_wave, synth_flux, wave, flux, rv, a, vsini):
     #wavelengths and fluxes have been flatten using flatspec_spline
     #wave and flux are single orders of the spectra
+    #'a' is our brightness scale factor of the companion star
+    
+    synth_flux_broad = broaden_spec(synth_wave, synth_flux, vsini)
     
     new_wave_synth = synth_wave * (1 + (rv/(c/1000)))
 
-    flux_interpolated = np.interp(wave, new_wave_synth, synth_flux)
-    combine_flux = (flux_interpolated+flux) / 2
+    flux_interpolated = np.interp(wave, new_wave_synth, synth_flux_broad)
+    combine_flux = (a*flux_interpolated+flux) / (1 + a)
     
     return wave, combine_flux
 
@@ -74,9 +77,9 @@ def broaden_spec(w, s, vsini, eps=0.6, nr=10, ntheta=100, dif = 0.0):
     Function from https://github.com/Adolfo1519/RotBroadInt/tree/main
 
     INPUTS:
-    s - input spectrum
-
     w - wavelength scale of the input spectrum
+    
+    s - input spectrum
     
     vsini (km/s) - projected rotational velocity
     
