@@ -46,19 +46,28 @@ def get_spectrum(file_name, trace_num, color):
         elif trace_num == 2:
             SCI_WAVE = np.array(L1['GREEN_SCI_WAVE2'].data)
             SCI_FLUX = np.array(L1['GREEN_SCI_FLUX2'].data)
-        else:
+        elif trace_num == 3:
             SCI_WAVE = np.array(L1['GREEN_SCI_WAVE3'].data)
-            SCI_FLUX = np.array(L1['GREEN_SCI_FLUX3'].data)    
-    else:
+            SCI_FLUX = np.array(L1['GREEN_SCI_FLUX3'].data)   
+        else:
+            print("Invalid trace number selected (must be 1, 2, or 3)")
+            return None
+    elif color == 'RED':
         if trace_num == 1:
             SCI_WAVE = np.array(L1['RED_SCI_WAVE1'].data)
             SCI_FLUX = np.array(L1['RED_SCI_FLUX1'].data)
         elif trace_num == 2:
             SCI_WAVE = np.array(L1['RED_SCI_WAVE2'].data)
             SCI_FLUX = np.array(L1['RED_SCI_FLUX2'].data)
-        else:
+        elif trace_num == 3:
             SCI_WAVE = np.array(L1['RED_SCI_WAVE3'].data)
             SCI_FLUX = np.array(L1['RED_SCI_FLUX3'].data)
+        else:
+            print("Invalid trace number selected (must be 1, 2, or 3)")
+            return None
+    else:
+        print("Invalid color selected (must be GREEN or RED)")
+        return None
             
     return SCI_WAVE, SCI_FLUX
 
