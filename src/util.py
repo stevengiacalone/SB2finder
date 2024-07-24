@@ -121,3 +121,80 @@ def broaden_spec(w, s, vsini, eps=0.6, nr=10, ntheta=100, dif = 0.0):
                 tarea += area
           
     return ns/tarea
+
+def merge_spec(file_name, color):
+    
+    #Retrieve the spectra from each trace
+    wave1, flux1 = get_spectrum(file_name, 1, color)
+    wave2, flux2 = get_spectrum(file_name, 2, color)
+    wave3, flux3 = get_spectrum(file_name, 3, color)
+    
+    #Combine three traces into one
+    avg_SCI_WAVE = np.empty_like(wave1)
+    sum_SCI_FLUX =  np.empty_like(flux1)
+
+    if color == 'GREEN':
+        range_num = 35
+    elif color == 'RED':
+        range_num = 32
+            
+    for o in range(range_num):
+        avg_SCI_WAVE[o,:] = np.flip((wave1[o,:] + wave2[o,:] + wave3[o,:]) / 3)
+        sum_SCI_FLUX[o,:] = np.flip(flux1[o,:] + flux2[o,:] + flux3[o,:])
+        
+    #set range to be one less than number of orders
+    # Initialize an empty 2D array
+    stitched_wave = []
+    stitched_flux = []
+    matching_waves = []
+
+    wave_1D = np.array([])
+    flux_1D = np.array([])
+
+    for o in range(range_num - 1):
+
+        #Set the left order and the right order
+        wave_left = avg_SCI_WAVE[o, :]
+        flux_left = sum_SCI_FLUX[o, :]
+        wave_right = avg_SCI_WAVE[o+1, :]
+        flux_right = sum_SCI_FLUX[o+1, :]
+
+        weight_left = np.ones(len(wave_left))
+        weight_right =  np.ones(len(wave_right))
+
+        flat_wave_right,rawflux_right,_,normspec_right,yfit_right = flatspec_spline(wave_right,flux_right,weight_right)
+
+        flat_wave_left,rawflux_left,_,normspec_left,yfit_left = flatspec_spline(wave_left,flux_left,weight_left)
+
+        #Set a mask to avoid 2 solutions since the yfit is parabolic
+        max_right = np.argmax(yfit_right)
+        max_left = np.argmax(yfit_left)
+        yfit_right_masked = yfit_right[: max_right]
+        yfit_left_masked = yfit_left[max_left :]
+
+        for i in range(0, len(yfit_left_masked)):
+            if o < 29:
+                matching_idx = np.argmin(np.abs(yfit_left_masked[i] - yfit_right_masked[:]))
+
+                if (flat_wave_right[: max_right][matching_idx-1] < flat_wave_left[max_left :][i]) & (flat_wave_right[: max_right][matching_idx+1] > flat_wave_left[max_left :][i]):
+                    matching_wave = flat_wave_right[: max_right][matching_idx]
+                    break
+            else:
+                if yfit_left_masked[i] < yfit_right_masked[0]:
+                    matching_wave =  flat_wave_left[max_left :][i]
+                    break
+
+        matching_waves.append(matching_wave)
+
+        if o == 0:
+            trim_mask = flat_wave_left < matching_wave
+        else:
+            trim_mask = (flat_wave_left < matching_wave) & (flat_wave_left > matching_waves[o-1])
+
+        stitched_wave.append(np.array(flat_wave_left[trim_mask]))
+        stitched_flux.append(np.array(rawflux_left[trim_mask]))
+
+        wave_1D = np.concatenate([wave_1D, flat_wave_left[trim_mask]])
+        flux_1D = np.concatenate([flux_1D, normspec_left[trim_mask]])
+        
+    return stitched_wave, stitched_flux, wave_1D, flux_1D
