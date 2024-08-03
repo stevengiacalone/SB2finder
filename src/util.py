@@ -43,8 +43,8 @@ def get_spectrum(file_name, trace_num, color):
         trace_num: Trace number of the L1 file (either 1,2, or 3) (int or float)
         color: Either 'GREEN' or 'RED' (string)
     Returns:
-        SCI_WAVE: Wavelength of spectrum (Angstroms)
-        SCI_FLUX: Flux density of spectrum
+        SCI_WAVE: Wavelength of spectrum [Angstroms] (numpy array)
+        SCI_FLUX: Flux density of spectrum (numpy array)
     """
     
     L1_file = file_name
@@ -150,51 +150,169 @@ def merge_spec(file_name, color):
 
     wave_1D = np.array([])
     flux_1D = np.array([])
+    
+    if color == 'GREEN':
 
-    for o in range(range_num - 1):
+        for o in range(range_num - 1):
 
-        #Set the left order and the right order
-        wave_left = avg_SCI_WAVE[o, :]
-        flux_left = sum_SCI_FLUX[o, :]
-        wave_right = avg_SCI_WAVE[o+1, :]
-        flux_right = sum_SCI_FLUX[o+1, :]
+            #Set the left order and the right order
+            wave_left = avg_SCI_WAVE[o, :]
+            flux_left = sum_SCI_FLUX[o, :]
+            wave_right = avg_SCI_WAVE[o+1, :]
+            flux_right = sum_SCI_FLUX[o+1, :]
 
-        weight_left = np.ones(len(wave_left))
-        weight_right =  np.ones(len(wave_right))
+            weight_left = np.ones(len(wave_left))
+            weight_right =  np.ones(len(wave_right))
 
-        flat_wave_right,rawflux_right,_,normspec_right,yfit_right = flatspec_spline(wave_right,flux_right,weight_right)
+            flat_wave_right,rawflux_right,_,normspec_right,yfit_right = flatspec_spline(wave_right,flux_right,weight_right)
 
-        flat_wave_left,rawflux_left,_,normspec_left,yfit_left = flatspec_spline(wave_left,flux_left,weight_left)
+            flat_wave_left,rawflux_left,_,normspec_left,yfit_left = flatspec_spline(wave_left,flux_left,weight_left)
 
-        #Set a mask to avoid 2 solutions since the yfit is parabolic
-        max_right = np.argmax(yfit_right)
-        max_left = np.argmax(yfit_left)
-        yfit_right_masked = yfit_right[: max_right]
-        yfit_left_masked = yfit_left[max_left :]
+            #Set a mask to avoid 2 solutions since the yfit is parabolic
+            max_right = np.argmax(yfit_right)
+            max_left = np.argmax(yfit_left)
+            yfit_right_masked = yfit_right[: max_right]
+            yfit_left_masked = yfit_left[max_left :]
 
-        for i in range(0, len(yfit_left_masked)):
-            if o < 29:
-                matching_idx = np.argmin(np.abs(yfit_left_masked[i] - yfit_right_masked[:]))
+            for i in range(0, len(yfit_left_masked)):
+                if o < 29:
+                    matching_idx = np.argmin(np.abs(yfit_left_masked[i] - yfit_right_masked[:]))
 
-                if (flat_wave_right[: max_right][matching_idx-1] < flat_wave_left[max_left :][i]) & (flat_wave_right[: max_right][matching_idx+1] > flat_wave_left[max_left :][i]):
-                    matching_wave = flat_wave_right[: max_right][matching_idx]
-                    break
+                    if (flat_wave_right[: max_right][matching_idx-1] < flat_wave_left[max_left :][i]) & (flat_wave_right[: max_right][matching_idx+1] > flat_wave_left[max_left :][i]):
+                        matching_wave = flat_wave_right[: max_right][matching_idx]
+                        break
+                else:
+                    if yfit_left_masked[i] < yfit_right_masked[0]:
+                        matching_wave =  flat_wave_left[max_left :][i]
+                        break
+
+            matching_waves.append(matching_wave)
+
+            if o == 0:
+                trim_mask = flat_wave_left < matching_wave
             else:
-                if yfit_left_masked[i] < yfit_right_masked[0]:
+                trim_mask = (flat_wave_left < matching_wave) & (flat_wave_left > matching_waves[o-1])
+
+            stitched_wave.append(np.array(flat_wave_left[trim_mask]))
+            stitched_flux.append(np.array(rawflux_left[trim_mask]))
+
+            wave_1D = np.concatenate([wave_1D, flat_wave_left[trim_mask]])
+            flux_1D = np.concatenate([flux_1D, normspec_left[trim_mask]])
+            
+            if o == (range_num - 2):
+                stitched_wave.append(np.array(flat_wave_right))
+                stitched_flux.append(np.array(rawflux_right))
+
+                wave_1D = np.concatenate([wave_1D, flat_wave_right])
+                flux_1D = np.concatenate([flux_1D, normspec_right])
+
+            
+    elif color == 'RED':
+        for o in range(range_num - 1):
+
+            #Set the left order and the right order
+            wave_left = avg_SCI_WAVE[o, :]
+            flux_left = sum_SCI_FLUX[o, :]
+            wave_right = avg_SCI_WAVE[o+1, :]
+            flux_right = sum_SCI_FLUX[o+1, :]
+
+            weight_left = np.ones(len(wave_left))
+            weight_right =  np.ones(len(wave_right))
+
+            flat_wave_right,rawflux_right,_,normspec_right,yfit_right = flatspec_spline(wave_right,flux_right,weight_right)
+
+            flat_wave_left,rawflux_left,_,normspec_left,yfit_left = flatspec_spline(wave_left,flux_left,weight_left)
+
+            #Set a mask to avoid 2 solutions since the yfit is parabolic
+            max_right = np.argmax(yfit_right)
+            max_left = np.argmax(yfit_left)
+            yfit_right_masked = yfit_right[: max_right]
+            yfit_left_masked = yfit_left[max_left :]
+
+            for i in range(0, len(yfit_left_masked)):
+
+                if flat_wave_left[max_left :][i] > flat_wave_right[: max_right][0]:
                     matching_wave =  flat_wave_left[max_left :][i]
                     break
 
-        matching_waves.append(matching_wave)
+            matching_waves.append(matching_wave)
 
-        if o == 0:
-            trim_mask = flat_wave_left < matching_wave
-        else:
-            trim_mask = (flat_wave_left < matching_wave) & (flat_wave_left > matching_waves[o-1])
+            if o == 0:
+                trim_mask = flat_wave_left < matching_wave
+            else:
+                trim_mask = (flat_wave_left < matching_wave) & (flat_wave_left > matching_waves[o-1])
+            
+            if o < 20:
+                stitched_wave.append(np.array(flat_wave_left[trim_mask]))
+                stitched_flux.append(np.array(rawflux_left[trim_mask]))
 
-        stitched_wave.append(np.array(flat_wave_left[trim_mask]))
-        stitched_flux.append(np.array(rawflux_left[trim_mask]))
+                wave_1D = np.concatenate([wave_1D, flat_wave_left[trim_mask]])
+                flux_1D = np.concatenate([flux_1D, normspec_left[trim_mask]])
+            else:
+                stitched_wave.append(np.array(flat_wave_left))
+                stitched_flux.append(np.array(rawflux_left))
 
-        wave_1D = np.concatenate([wave_1D, flat_wave_left[trim_mask]])
-        flux_1D = np.concatenate([flux_1D, normspec_left[trim_mask]])
+                wave_1D = np.concatenate([wave_1D, flat_wave_left])
+                flux_1D = np.concatenate([flux_1D, normspec_left])
+
+            if o == (range_num - 2):
+                stitched_wave.append(np.array(flat_wave_right))
+                stitched_flux.append(np.array(rawflux_right))
+
+                wave_1D = np.concatenate([wave_1D, flat_wave_right])
+                flux_1D = np.concatenate([flux_1D, normspec_right])
         
     return stitched_wave, stitched_flux, wave_1D, flux_1D
+
+def stitch_spec(file_name):
+    """
+    Stitches green and red CCD parts of the spectrum from L1 files.
+    Arguments:
+        file_name: Name of L1 file with spectrum (string)
+    Returns:
+        full_spectra_wave: Wavelength of entire spectrum [Angstroms] (list, each order is a numpy array)
+        full_spectra_flux: Flux density of entire spectrum (list, each order is a numpy array)
+        full_flat_wave: Flattened wavelength of entire spectrum [Angstroms] (numpy array)
+        full_spectra_flux: Flattened flux density of entire spectrum (numpy array)
+    """
+    
+    stitched_wave_green, stitched_flux_green, wave_1D_green, flux_1D_green = merge_spec(file_name, 'GREEN')
+    stitched_wave_red, stitched_flux_red, wave_1D_red, flux_1D_red = merge_spec(file_name, 'RED')
+    
+    full_spectra_wave = stitched_wave_green + stitched_wave_red
+    full_spectra_flux = stitched_flux_green + stitched_flux_red
+    
+    max_right = np.argmax(full_spectra_wave[35])
+    max_left = np.argmax(full_spectra_wave[34])
+    
+    weight_left = np.ones(len(full_spectra_wave[34]))
+    weight_right =  np.ones(len(full_spectra_wave[35]))
+
+    flat_wave_right,rawflux_right,_,normspec_right,yfit_right = flatspec_spline(full_spectra_wave[35],full_spectra_flux[35],weight_right)
+
+    flat_wave_left,rawflux_left,_,normspec_left,yfit_left = flatspec_spline(full_spectra_wave[34],full_spectra_flux[34],weight_left)
+
+    #Set a mask to avoid 2 solutions since the yfit is parabolic
+    max_right = np.argmax(yfit_right)
+    max_left = np.argmax(yfit_left)
+    yfit_right_masked = yfit_right[: max_right]
+    yfit_left_masked = yfit_left[max_left :]
+
+    for i in range(0, len(yfit_right_masked)):
+
+        if flat_wave_right[: max_right][i] > flat_wave_left[max_left :][-1]:
+            matching_wave = flat_wave_right[: max_right][i]
+            break
+
+    trim_mask = (flat_wave_right > matching_wave)
+    
+    full_spectra_wave[35] = full_spectra_wave[35][trim_mask]
+    full_spectra_flux[35] = full_spectra_flux[35][trim_mask]
+    
+    flux_1D_red = flux_1D_red[wave_1D_red > matching_wave]
+    wave_1D_red = wave_1D_red[wave_1D_red > matching_wave]
+    
+    full_flat_wave = np.concatenate((wave_1D_green, wave_1D_red))
+    full_flat_flux = np.concatenate((flux_1D_green, flux_1D_red))
+    
+    return full_spectra_wave, full_spectra_flux, full_flat_wave, full_flat_flux
