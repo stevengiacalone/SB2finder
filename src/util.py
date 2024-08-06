@@ -66,7 +66,8 @@ def combine_spectra(synth_wave, synth_flux, wave, flux, rv, a, vsini):
     new_wave_synth = synth_wave * (1 + (rv/(c/1000)))
 
     flux_interpolated = np.interp(wave, new_wave_synth, synth_flux_broad)
-    combine_flux = (a*flux_interpolated+flux) / (1 + a)
+    a_interpolated = np.interp(wave, new_wave_synth, a)
+    combine_flux = (flux_interpolated + a_interpolated*flux) / (1 + a_interpolated)
     
     return wave, combine_flux
 
@@ -314,5 +315,17 @@ def stitch_spec(file_name):
     
     full_flat_wave = np.concatenate((wave_1D_green, wave_1D_red))
     full_flat_flux = np.concatenate((flux_1D_green, flux_1D_red))
+    
+    telluric_mask = ~( 
+    ((full_flat_wave > 7590) & (full_flat_wave < 7710)) |
+    ((full_flat_wave > 6860) & (full_flat_wave < 7080)) | 
+    ((full_flat_wave > 6270) & (full_flat_wave < 6330)) | 
+    ((full_flat_wave > 5870) & (full_flat_wave < 6000)) | 
+    ((full_flat_wave > 7160) & (full_flat_wave < 7400)) | 
+    ((full_flat_wave > 8100) & (full_flat_wave < 8400))
+                )
+    
+    full_flat_wave = full_flat_wave[telluric_mask]
+    full_flat_flux = full_flat_flux[telluric_mask]
     
     return full_spectra_wave, full_spectra_flux, full_flat_wave, full_flat_flux
