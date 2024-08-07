@@ -11,7 +11,9 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
     full_spectra_wave, full_spectra_flux, full_flat_wave, full_flat_flux = stitch_spec(file_name)
     
     line_mask = np.loadtxt(mask_name).T
-    line_mask_mask = (line_mask[0] > 4500) & (line_mask[0] < 8500) #changed mask range to 8500
+    min_wave = full_flat_wave[0]
+    max_wave = full_flat_wave[-1]
+    line_mask_mask = (line_mask[0] > min_wave) & (line_mask[0] < max_wave) #changed mask range to 8500
     new_line_mask = line_mask[0][line_mask_mask]
     new_line_weight = line_mask[1][line_mask_mask]
     
@@ -33,8 +35,8 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
     
     #download grid
     filename = "synth_spec.hdf5"
-    Teff_target = 5800 ### does this still stay the same? Is it the same as below?
-    Z_target = 0 ### should this be a different variable
+    Teff_target = Teff_target
+    Z_target = met_target
     download_stellar_model_grid(filename, Teff_target, Z_target)
     
     #Get a_arr
@@ -42,9 +44,6 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
 
     synth_flux1 = myHDF5.load_flux(np.array([Teff_target, logg_target, met_target]))
     synth_wave1 = myHDF5.wl
-    min_wave = full_flat_wave[0]
-    max_wave = full_flat_wave[-1]
-
     synth_mask1 = (synth_wave1 > min_wave) & (synth_wave1 < max_wave)
     
     #prep loop variables
@@ -57,7 +56,7 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
 
             synth_flux2 = myHDF5.load_flux(np.array([t_eff[j], 4.5, 0]))
             synth_wave2 = myHDF5.wl            
-            synth_mask2 = (synth_wave2 > 4500) & (synth_wave2 < 8500)
+            synth_mask2 = (synth_wave2 > min_wave) & (synth_wave2 < max_wave)
 
             _, _, _, flat_synth_flux1, yfit1 = flatspec_spline(synth_wave1[synth_mask1], synth_flux1[synth_mask1], np.ones(len(synth_wave1[synth_mask1])))
             _, _, _, flat_synth_flux2, yfit2 = flatspec_spline(synth_wave2[synth_mask2], synth_flux2[synth_mask2], np.ones(len(synth_wave2[synth_mask2])))
@@ -75,9 +74,8 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
             
             dRV_list = np.concatenate([dRV_list, rv_shift_arr[i]])
             Teff_list = np.concatenate([Teff_list, t_eff[j]])
-            Teff_list = np.concatenate([peak_list, peaks])
+            peak_list = np.concatenate([peak_list, peaks])
             
-            'YSOs with {} models: {} \nYSOs with {} models: {}'.format(x_lab, len(x), y_lab, len(y) )
             np.save_txt(fname = "rv_{}_teff_{}.dat".format(rv_shift_arr[i], t_eff[j]), X=my_ccf)
             
     df = pd.DataFrame({"dRV": dRV_list, "Teff": Teff_list, "peaks": peak_list})
