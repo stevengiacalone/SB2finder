@@ -1,6 +1,7 @@
-def binary_detect(file_name, mask_name, rv_shift_arr, t_eff):
+def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_target, met_target):
     
     import numpy as np
+    import pandas as pd
     from scipy.signal import find_peaks
     from util import *
     from synth_spec import *
@@ -32,16 +33,24 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff):
     
     #download grid
     filename = "synth_spec.hdf5"
-    Teff_target = 5800
-    Z_target = 0
+    Teff_target = 5800 ### does this still stay the same? Is it the same as below?
+    Z_target = 0 ### should this be a different variable
     download_stellar_model_grid(filename, Teff_target, Z_target)
     
     #Get a_arr
     myHDF5 = HDF5Interface(filename)
 
-    synth_flux1 = myHDF5.load_flux(np.array([5800, 4.5, 0]))
+    synth_flux1 = myHDF5.load_flux(np.array([Teff_target, logg_target, met_target]))
     synth_wave1 = myHDF5.wl
-    synth_mask1 = (synth_wave1 > 4500) & (synth_wave1 < 8500)
+    min_wave = full_flat_wave[0]
+    max_wave = full_flat_wave[-1]
+
+    synth_mask1 = (synth_wave1 > min_wave) & (synth_wave1 < max_wave)
+    
+    #prep loop variables
+    dRV_list = np.array([])
+    Teff_list = np.array([])
+    peak_list = np.array([])
     
     for i in range(0, len(rv_shift_arr)):
         for j in range(0, len(t_eff)):
@@ -55,18 +64,25 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff):
 
             a_arr = yfit1/yfit2
 
-            combined_wave, combined_flux = combine_spectra(synth_wave2[synth_mask2], flat_synth_flux2, full_flat_wave, full_flat_flux, rv=rv_shift_arr, a=a_arr, vsini=2)
+            combined_wave, combined_flux = combine_spectra(synth_wave2[synth_mask2], flat_synth_flux2, full_flat_wave, full_flat_flux, rv=rv_shift_arr[i], a=a_arr, vsini=2)
 
             test = calc_ccf(velocity_loop, new_line_start, new_line_end, combined_wave, combined_flux[1:], new_line_weight, sn, -z_b)
 
             mask_vel = np.ones(len(test[0]), dtype=bool)
-
             my_ccf = ((-test[0][mask_vel]) + np.max(test[0][mask_vel])) / np.max(((-test[0][mask_vel]) + np.max(test[0][mask_vel])))
             my_vel = velocity_loop[mask_vel]
-
             peaks, _ = find_peaks(my_ccf, height=0.05)
+            
+            dRV_list = np.concatenate([dRV_list, rv_shift_arr[i]])
+            Teff_list = np.concatenate([Teff_list, t_eff[j]])
+            Teff_list = np.concatenate([peak_list, peaks])
+            
+            'YSOs with {} models: {} \nYSOs with {} models: {}'.format(x_lab, len(x), y_lab, len(y) )
+            np.save_txt(fname = "rv_{}_teff_{}.dat".format(rv_shift_arr[i], t_eff[j]), X=my_ccf)
+            
+    df = pd.DataFrame({"dRV": dRV_list, "Teff": Teff_list, "peaks": peak_list})
     
-    return
+    return df
     
     
     
