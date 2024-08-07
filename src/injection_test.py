@@ -54,7 +54,7 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
     for i in range(0, len(rv_shift_arr)):
         for j in range(0, len(t_eff)):
             
-            print('Working on RV shift of {} km/s and T_eff of {} K'.format(rv_shift_arr[i], t_eff[j])
+            print('Working on RV shift of {} km/s and T_eff of {} K'.format(rv_shift_arr[i], t_eff[j]))
 
             synth_flux2 = myHDF5.load_flux(np.array([t_eff[j], 4.5, 0]))
             synth_wave2 = myHDF5.wl            
