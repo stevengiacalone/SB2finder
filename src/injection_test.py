@@ -47,9 +47,9 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
     synth_mask1 = (synth_wave1 > min_wave) & (synth_wave1 < max_wave)
     
     #prep loop variables
-    dRV_list = np.array([])
-    Teff_list = np.array([])
-    peak_list = np.array([])
+    dRV_list = []
+    Teff_list = []
+    peak_list = []
     
     for i in range(0, len(rv_shift_arr)):
         for j in range(0, len(t_eff)):
@@ -74,9 +74,9 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
             my_vel = velocity_loop[mask_vel]
             peaks, _ = find_peaks(my_ccf, height=0.05)
             
-            dRV_list = np.concatenate([dRV_list, rv_shift_arr[i]])
-            Teff_list = np.concatenate([Teff_list, t_eff[j]])
-            peak_list = np.concatenate([peak_list, peaks])
+            dRV_list.append(rv_shift_arr[i])
+            Teff_list.append(t_eff[j])
+            peak_list.append(peaks)
             
             np.save_txt(fname = "rv_{}_teff_{}.dat".format(rv_shift_arr[i], t_eff[j]), X=my_ccf)
             
