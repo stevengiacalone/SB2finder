@@ -78,7 +78,7 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
             Teff_list.append(t_eff[j])
             peak_list.append(peaks)
             
-            np.save_txt(fname = "rv_{}_teff_{}.dat".format(rv_shift_arr[i], t_eff[j]), X=my_ccf)
+            np.savetxt(fname = "rv_{}_teff_{}.dat".format(rv_shift_arr[i], t_eff[j]), X=my_ccf)
             
     df = pd.DataFrame({"dRV": dRV_list, "Teff": Teff_list, "peaks": peak_list})
     
