@@ -1,11 +1,11 @@
+import numpy as np
+import pandas as pd
+from scipy.signal import find_peaks
+from util import *
+from synth_spec import *
+from ccf import *
+
 def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_target, met_target):
-    
-    import numpy as np
-    import pandas as pd
-    from scipy.signal import find_peaks
-    from util import *
-    from synth_spec import *
-    from ccf import *
     
     #Get whole spectrum for observed star (KPF specific procedure)
     full_spectra_wave, full_spectra_flux, full_flat_wave, full_flat_flux = stitch_spec(file_name)
