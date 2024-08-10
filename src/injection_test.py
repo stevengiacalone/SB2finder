@@ -155,7 +155,7 @@ def binary_detect_parallel(file_name, mask_name, rv_shift_arr, t_eff, Teff_targe
         synth_flux2 = synth_flux_correction(synth_flux2, t_eff[i])
         synth_wave2 = myHDF5.wl            
         synth_mask2 = (synth_wave2 > min_wave) & (synth_wave2 < max_wave)
-        np.savetxt(f"spec/{int(t_eff)}_synth_spec.csv", np.array([synth_wave2[synth_mask2], synth_flux2[synth_mask2]]), delimiter=",")
+        np.savetxt(f"spec/{int(t_eff[i])}_synth_spec.csv", np.array([synth_wave2[synth_mask2], synth_flux2[synth_mask2]]), delimiter=",")
     
     # Prep loop variables
     idx_list = []
