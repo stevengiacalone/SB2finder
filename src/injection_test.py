@@ -1,11 +1,24 @@
 import numpy as np
 import pandas as pd
+from multiprocessing import Pool
+import os
 from scipy.signal import find_peaks
 from util import *
 from synth_spec import *
 from ccf import *
 
 def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_target, met_target):
+    """
+    Automated injection-recovery test.
+    Args:
+        file_name: KPF L1 file name (str).
+        mask_name: Stellar binary mask file name (str).
+        rv_shift_arr: Array of delta RVs to test (numpy array of ints or float; km/s)
+        t_eff: Array of secondary effective temperatures to test (numpy array of ints or floats; K)
+        Teff_target: Effective temperature of primary (int or float; K).
+        logg_target: Log10 surface gravity of primary (int or float; dex).
+        met_target: Metallicity of primary (int or float; dex).
+    """
     
     #Get whole spectrum for observed star (KPF specific procedure)
     full_spectra_wave, full_spectra_flux, full_flat_wave, full_flat_flux = stitch_spec(file_name)
@@ -84,5 +97,94 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
     
     return df
     
+def parallel_func(idx_list, dRV_list, Teff_list, peak_list, params, n_cores):
+    """
+    Function for parallelizing injection-recovery tests.
+    Args:
+        idx_list: Empty list to store index values in.
+        dRV_list: Empty list to store dRV values in.
+        Teff_list: Empty list to store Teff values in.
+        peak_list: Empty list to store peak arrays in.
+        params: 2D array containing inputs.
+        n_cores: Number of cores to use for parallelization.
+    """
+    if n_cores > os.cpu_count():
+        n_cores = os.cpu_count()
+    with Pool(n_cores) as pool:
+        res = pool.starmap(calculate_CCF, params)
+        for r in res:
+            idx_list.append(r[0])
+            dRV_list.append(r[1])
+            Teff_list.append(r[2])
+            peak_list.append(r[3])
+    return
+
+def binary_detect_parallel(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_target, met_target, n_cores):
+    """
+    Injection-recovery tests, but parallelized. Specify number of cores to use with n_cores argument.
+    """
     
+    # Create results and spec directories, if they doesn't already exist
+    if os.path.isdir('results') == False:
+        os.mkdir("./results")
+    if os.path.isdir('spec') == False:
+        os.mkdir("./spec")
     
+    # Get whole spectrum for observed star (KPF specific procedure)
+    full_spectra_wave, full_spectra_flux, full_flat_wave, full_flat_flux = stitch_spec(file_name)
+    np.savetxt("spec/flat_obs_spec.csv", np.array([full_flat_wave, full_flat_flux]), delimiter=",")
+    
+    # Download PHOENIX model spectra grid
+    synth_file_name = "synth_spec.hdf5"
+    download_stellar_model_grid(synth_file_name, Teff_target, met_target)
+    
+    # Get synthetic spectra file and save all to csv files
+    myHDF5 = HDF5Interface(synth_file_name)
+    
+    # model of target star first
+    min_wave = full_flat_wave[0]
+    max_wave = full_flat_wave[-1]
+    synth_flux1 = myHDF5.load_flux(np.array([Teff_target, logg_target, met_target]))
+    synth_flux1 = synth_flux_correction(synth_flux1, Teff_target)
+    synth_wave1 = myHDF5.wl
+    synth_mask1 = (synth_wave1 > min_wave) & (synth_wave1 < max_wave)    
+    np.savetxt("spec/target_synth_spec.csv", np.array([synth_wave1[synth_mask1], synth_flux1[synth_mask1]]), delimiter=",")
+
+    for i in range(len(t_eff)):
+        synth_flux2 = myHDF5.load_flux(np.array([t_eff[i], 4.5, met_target]))
+        synth_flux2 = synth_flux_correction(synth_flux2, t_eff[i])
+        synth_wave2 = myHDF5.wl            
+        synth_mask2 = (synth_wave2 > min_wave) & (synth_wave2 < max_wave)
+        np.savetxt(f"spec/{int(t_eff)}_synth_spec.csv", np.array([synth_wave2[synth_mask2], synth_flux2[synth_mask2]]), delimiter=",")
+    
+    # Prep loop variables
+    idx_list = []
+    dRV_list = []
+    Teff_list = []
+    peak_list = []
+    
+    # Combine rv shifts and teffs into single array
+    params = np.array(np.meshgrid(rv_shift_arr, t_eff)).T.reshape(-1, 2)
+    ccf_idx = np.arange(len(params))[:, None]
+    file_name_arr = np.full_like(ccf_idx, file_name, dtype=object)
+    mask_name_arr = np.full_like(ccf_idx, mask_name, dtype=object)
+    Teff_target_arr = np.full_like(ccf_idx, Teff_target)
+    logg_target_arr = np.full_like(ccf_idx, logg_target)
+    met_target_arr = np.full_like(ccf_idx, met_target)
+    params = np.concatenate([file_name_arr,
+                             mask_name_arr,
+#                              synth_file_name_arr,
+                             Teff_target_arr,
+                             logg_target_arr,
+                             met_target_arr,
+                             ccf_idx, 
+                             params], axis=1, dtype=object)
+    
+    # Run parallel CCF calculation
+    parallel_func(idx_list, dRV_list, Teff_list, peak_list, params, n_cores)        
+            
+    # Save results.
+    df = pd.DataFrame({"idx": idx_list, "dRV": dRV_list, "Teff": Teff_list, "peaks": peak_list})
+    df.to_csv("results/injrec_results.csv")
+    
+    return df

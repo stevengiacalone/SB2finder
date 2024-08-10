@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.signal import find_peaks
+from util import *
 
 LIGHT_SPEED = 3e5
 
@@ -72,3 +74,66 @@ def calc_ccf(velocity_loop, new_line_start, new_line_end, x_pixel_wave, spectrum
             ccf_pixels[c, :] = spectrum * mask_spectra_doppler_shifted * sn
             ccf[c] = np.nansum(ccf_pixels[c, :])
         return ccf, ccf_pixels
+    
+def calculate_CCF(file_name, mask_name, Teff_target, logg_target, met_target, idx, dRV, Teff):
+    """
+    CCF function for parallelized injection-recovery tests.
+    Args:
+        file_name: KPF L1 file name (str).
+        mask_name: Stellar binary mask file name (str).
+        Teff_target: Effective temperature of primary (int or float; K).
+        logg_target: Log10 surface gravity of primary (int or float; dex).
+        met_target: Metallicity of primary (int or float; dex).
+        idx: Index of instance (int).
+        dRV: RV shift of secondary relative to primary (int or float; km/s).
+        Teff: Effective temperature of secondary (int or float; K).
+    """
+    
+#     print(f"Working on RV shift of {dRV} km/s and T_eff of {Teff} K")
+    # Get whole spectrum for observed star (KPF specific procedure)
+    full_flat_wave, full_flat_flux = np.loadtxt("spec/flat_obs_spec.csv", delimiter=",")
+    
+    line_mask = np.loadtxt(mask_name).T
+    min_wave = full_flat_wave[0]
+    max_wave = full_flat_wave[-1]
+    line_mask_mask = (line_mask[0] > min_wave) & (line_mask[0] < max_wave)
+    new_line_mask = line_mask[0][line_mask_mask]
+    new_line_weight = line_mask[1][line_mask_mask]
+    
+    # Set up CCF inputs
+    velocity_loop = np.arange(-50, 50, 1.0) # velocities to calculate CCF at
+    v_steps = len(velocity_loop)
+    LIGHT_SPEED = 3e5
+    LIGHT_SPEED_M = 3e8
+    vb = -82e3
+    zb = vb/LIGHT_SPEED_M
+    z_b = ((1.0/(1+zb)) - 1.0)
+
+    new_line_start = new_line_mask - 0.025
+    new_line_end = new_line_mask + 0.025
+    x_pixel_wave = full_flat_wave
+    spectrum = full_flat_flux[1:]
+    sn = np.ones(len(spectrum))
+    
+    # Get appropriate synthetic spectra 
+    synth_wave1, synth_flux1 = np.loadtxt("spec/target_synth_spec.csv", delimiter=",")
+    synth_wave2, synth_flux2 = np.loadtxt(f"spec/{int(Teff)}_synth_spec.csv", delimiter=",")
+
+    _, _, _, flat_synth_flux1, yfit1 = flatspec_spline(synth_wave1, synth_flux1, np.ones(len(synth_wave1)))
+    _, _, _, flat_synth_flux2, yfit2 = flatspec_spline(synth_wave2, synth_flux2, np.ones(len(synth_wave2)))
+
+    a_arr = yfit1/yfit2
+
+    # Combine the secondary spectrum with the observed spectrum
+    combined_wave, combined_flux = combine_spectra(synth_wave2, flat_synth_flux2, full_flat_wave, full_flat_flux, rv=dRV, a=a_arr, vsini=2)
+
+    # Calculate the ccf, normalize it, and search for peaks
+    ccf = calc_ccf(velocity_loop, new_line_start, new_line_end, combined_wave, combined_flux[1:], new_line_weight, sn, -z_b)
+
+    norm_ccf = ((-ccf[0]) + np.max(ccf[0])) / np.max(((-ccf[0]) + np.max(ccf[0])))
+    peaks, _ = find_peaks(norm_ccf, height=0.05)
+
+    # save ccf
+    np.savetxt(fname = "results/rv_{}_teff_{}.dat".format(dRV, Teff), X=norm_ccf)
+    
+    return idx, dRV, Teff, peaks

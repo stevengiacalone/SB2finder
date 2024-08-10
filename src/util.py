@@ -6,6 +6,27 @@ from astropy.table import Table
 from scipy.constants import c
 from numpy import interp
 
+def synth_flux_correction(flux, Teff):
+    """
+    Applies correction factor to PHOENIX spectra flux so that it corresponds to the
+    actual flux of the star. Correction factors scale as L/R^2 using the following table
+    https://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt
+    Args:
+        flux: Flux of synthetic spectrum (numpy array)
+        Teff: Effective temperature of star (int or float).
+    Returns:
+        Flux multiplied by correction factor.
+    """
+    st_props = np.loadtxt("../../stellar_properties.txt", skiprows=1, usecols=[1,4,6]).T
+    Teffs = st_props[0]
+    Lums = 10**(st_props[1])
+    Rads = st_props[2]
+    corrections = Lums/Rads**2
+    
+    this_idx = np.argmin(np.abs(Teffs - Teff))
+    this_correction = corrections[this_idx]
+    return flux*this_correction
+
 def spline_fit(x,y,window):
     breakpoint = np.linspace(np.min(x),np.max(x),int((np.max(x)-np.min(x))/window))
     ss = inter.LSQUnivariateSpline(x,y,breakpoint[1:-1])
@@ -49,9 +70,9 @@ def get_spectrum(file_name, trace_num, color):
     
     L1_file = file_name
     L1 = fits.open(file_name)
-    
     SCI_WAVE = np.array(L1[color + '_SCI_WAVE' + str(trace_num)].data)
     SCI_FLUX = np.array(L1[color + '_SCI_FLUX' + str(trace_num)].data)
+    L1.close()
             
     return SCI_WAVE, SCI_FLUX
 
