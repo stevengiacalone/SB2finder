@@ -32,7 +32,7 @@ def spline_fit(x,y,window):
     ss = inter.LSQUnivariateSpline(x,y,breakpoint[1:-1])
     return ss
 
-def flatspec_spline(x,rawspec,weight, order=8, n_iter = 5, ffrac = 0.985):
+def flatspec_spline(x,rawspec,weight, order = 8, n_iter = 5, ffrac = 0.985, window = 5):
     
     #If array is decreasing, we apply a flip to make it increasing
     if x[0] > x[1]:
@@ -42,14 +42,14 @@ def flatspec_spline(x,rawspec,weight, order=8, n_iter = 5, ffrac = 0.985):
 
     pos = np.where((np.isnan(rawspec)==False) & (np.isnan(weight)==False))[0]
 
-    ss = spline_fit(x[pos],rawspec[pos],5.)#5 Ang as knot points for flattening continuum
+    ss = spline_fit(x[pos],rawspec[pos],window)
     yfit = ss(x)
 
     for i in range(n_iter):
         normspec = rawspec / yfit
         pos = np.where((normspec >= ffrac) & (yfit > 0))[0]#& (normspec <= 2.)
 
-        ss = spline_fit(x[pos],rawspec[pos],5.)
+        ss = spline_fit(x[pos],rawspec[pos],window)
         yfit = ss(x)
     normspec = rawspec / yfit
 

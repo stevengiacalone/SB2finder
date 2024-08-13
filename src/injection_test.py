@@ -97,7 +97,7 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
     
     return df
     
-def parallel_func(idx_list, dRV_list, Teff_list, peak_list, params, n_cores):
+def parallel_func(idx_list, dRV_list, Teff_list, peak_list, n_injections, n_cores):
     """
     Function for parallelizing injection-recovery tests.
     Args:
@@ -108,15 +108,24 @@ def parallel_func(idx_list, dRV_list, Teff_list, peak_list, params, n_cores):
         params: 2D array containing inputs.
         n_cores: Number of cores to use for parallelization.
     """
+    i = np.arange(n_injections)
     if n_cores > os.cpu_count():
         n_cores = os.cpu_count()
+#     with Pool(n_cores) as pool:
+#         res = pool.starmap(calculate_CCF, params)
+#         for r in res:
+#             idx_list.append(r[0])
+#             dRV_list.append(r[1])
+#             Teff_list.append(r[2])
+#             peak_list.append(r[3])
     with Pool(n_cores) as pool:
-        res = pool.starmap(calculate_CCF, params)
+        res = pool.imap_unordered(calculate_CCF, i)
         for r in res:
             idx_list.append(r[0])
             dRV_list.append(r[1])
             Teff_list.append(r[2])
             peak_list.append(r[3])
+        pool.close()
     return
 
 def binary_detect_parallel(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_target, met_target, n_cores):
@@ -163,28 +172,27 @@ def binary_detect_parallel(file_name, mask_name, rv_shift_arr, t_eff, Teff_targe
     Teff_list = []
     peak_list = []
     
-    # Combine rv shifts and teffs into single array
+    # Combine everything into a dataframe and save it
     params = np.array(np.meshgrid(rv_shift_arr, t_eff)).T.reshape(-1, 2)
     ccf_idx = np.arange(len(params))[:, None]
-    file_name_arr = np.full_like(ccf_idx, file_name, dtype=object)
     mask_name_arr = np.full_like(ccf_idx, mask_name, dtype=object)
-    Teff_target_arr = np.full_like(ccf_idx, Teff_target)
-    logg_target_arr = np.full_like(ccf_idx, logg_target)
-    met_target_arr = np.full_like(ccf_idx, met_target)
-    params = np.concatenate([file_name_arr,
-                             mask_name_arr,
-#                              synth_file_name_arr,
-                             Teff_target_arr,
-                             logg_target_arr,
-                             met_target_arr,
+    params = np.concatenate([mask_name_arr,
                              ccf_idx, 
                              params], axis=1, dtype=object)
+    df = pd.DataFrame(params).rename(
+        columns={0: "mask", 
+                 1: "idx", 
+                 2: "dRV", 
+                 3: "Teff"}
+    )
+    df.to_csv("results/injections.csv")
     
     # Run parallel CCF calculation
-    parallel_func(idx_list, dRV_list, Teff_list, peak_list, params, n_cores)        
+    n_injections = len(ccf_idx)
+    parallel_func(idx_list, dRV_list, Teff_list, peak_list, n_injections, n_cores)        
             
-    # Save results.
-    df = pd.DataFrame({"idx": idx_list, "dRV": dRV_list, "Teff": Teff_list, "peaks": peak_list})
-    df.to_csv("results/injrec_results.csv")
+    # Save results
+    df_res = pd.DataFrame({"idx": idx_list, "dRV": dRV_list, "Teff": Teff_list, "peaks": peak_list})
+    df_res.to_csv("results/injrec_results.csv")
     
     return df
