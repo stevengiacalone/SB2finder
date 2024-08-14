@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import os
 from scipy.signal import find_peaks
 from util import *
 
@@ -115,52 +116,58 @@ def calculate_CCF(i):
     spectrum = full_flat_flux[1:]
     sn = np.ones(len(spectrum))
     
-    # Get appropriate synthetic spectra 
-    synth_wave1, synth_flux1 = np.loadtxt("spec/target_synth_spec.csv", delimiter=",")
-    synth_wave2, synth_flux2 = np.loadtxt(f"spec/{int(Teff)}_synth_spec.csv", delimiter=",")
+    this_file = f"rv_{dRV}_teff_{Teff}.dat"
+    if this_file in os.listdir("results/"):
+        norm_ccf = np.loadtxt("results/"+this_file)
+        peaks, _ = find_peaks(norm_ccf, height=0.05)
+    
+    else:
+        # Get appropriate synthetic spectra 
+        synth_wave1, synth_flux1 = np.loadtxt("spec/target_synth_spec.csv", delimiter=",")
+        synth_wave2, synth_flux2 = np.loadtxt(f"spec/{int(Teff)}_synth_spec.csv", delimiter=",")
 
-    _, _, _, flat_synth_flux1, yfit1 = flatspec_spline(
-        synth_wave1, 
-        synth_flux1, 
-        np.ones(len(synth_wave1)),
-        window=100
-    )
-    _, _, _, flat_synth_flux2, yfit2 = flatspec_spline(
-        synth_wave2, 
-        synth_flux2, 
-        np.ones(len(synth_wave2)),
-        window=100
-    )
+        _, _, _, flat_synth_flux1, yfit1 = flatspec_spline(
+            synth_wave1, 
+            synth_flux1, 
+            np.ones(len(synth_wave1)),
+            window=100
+        )
+        _, _, _, flat_synth_flux2, yfit2 = flatspec_spline(
+            synth_wave2, 
+            synth_flux2, 
+            np.ones(len(synth_wave2)),
+            window=100
+        )
 
-    a_arr = yfit1/yfit2
+        a_arr = yfit1/yfit2
 
-    # Combine the secondary spectrum with the observed spectrum (82 km/s added to account for RV shift in KPF data)
-    combined_wave, combined_flux = combine_spectra(
-        synth_wave2, 
-        flat_synth_flux2, 
-        full_flat_wave, 
-        full_flat_flux, 
-        rv=dRV+82, 
-        a=a_arr, 
-        vsini=2
-    )
+        # Combine the secondary spectrum with the observed spectrum (82 km/s added to account for RV shift in KPF data)
+        combined_wave, combined_flux = combine_spectra(
+            synth_wave2, 
+            flat_synth_flux2, 
+            full_flat_wave, 
+            full_flat_flux, 
+            rv=dRV+82, 
+            a=a_arr, 
+            vsini=2
+        )
 
-    # Calculate the ccf, normalize it, and search for peaks
-    ccf = calc_ccf(
-        velocity_loop, 
-        new_line_start, 
-        new_line_end, 
-        combined_wave, 
-        combined_flux[1:], 
-        new_line_weight, 
-        sn, 
-        -z_b
-    )
+        # Calculate the ccf, normalize it, and search for peaks
+        ccf = calc_ccf(
+            velocity_loop, 
+            new_line_start, 
+            new_line_end, 
+            combined_wave, 
+            combined_flux[1:], 
+            new_line_weight, 
+            sn, 
+            -z_b
+        )
 
-    norm_ccf = ((-ccf[0]) + np.max(ccf[0])) / np.max(((-ccf[0]) + np.max(ccf[0])))
-    peaks, _ = find_peaks(norm_ccf, height=0.05)
+        norm_ccf = ((-ccf[0]) + np.max(ccf[0])) / np.max(((-ccf[0]) + np.max(ccf[0])))
+        peaks, _ = find_peaks(norm_ccf, height=0.05)
 
-    # save ccf
-    np.savetxt(fname = f"results/rv_{dRV}_teff_{Teff}.dat", X=norm_ccf)
+        # save ccf
+        np.savetxt(fname = "results/"+this_file, X=norm_ccf)
     
     return idx, dRV, Teff, peaks
