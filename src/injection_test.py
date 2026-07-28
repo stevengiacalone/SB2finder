@@ -69,7 +69,11 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
             
             print('Working on RV shift of {} km/s and T_eff of {} K'.format(rv_shift_arr[i], t_eff[j]))
 
-            synth_flux2 = myHDF5.load_flux(np.array([t_eff[j], 4.5, 0]))
+            if t_eff[j] <= 3900:
+                this_logg = 5.0
+            else:
+                this_logg = 4.5
+            synth_flux2 = myHDF5.load_flux(np.array([t_eff[j], this_logg, 0]))
             synth_wave2 = myHDF5.wl            
             synth_mask2 = (synth_wave2 > min_wave) & (synth_wave2 < max_wave)
 
@@ -160,7 +164,11 @@ def binary_detect_parallel(file_name, mask_name, rv_shift_arr, t_eff, Teff_targe
     np.savetxt("spec/target_synth_spec.csv", np.array([synth_wave1[synth_mask1], synth_flux1[synth_mask1]]), delimiter=",")
 
     for i in range(len(t_eff)):
-        synth_flux2 = myHDF5.load_flux(np.array([t_eff[i], 4.5, met_target]))
+        if t_eff[i] <= 3900:
+            this_logg = 5.0
+        else:
+            this_logg = 4.5
+        synth_flux2 = myHDF5.load_flux(np.array([t_eff[i], this_logg, met_target]))
         synth_flux2 = synth_flux_correction(synth_flux2, t_eff[i])
         synth_wave2 = myHDF5.wl            
         synth_mask2 = (synth_wave2 > min_wave) & (synth_wave2 < max_wave)
