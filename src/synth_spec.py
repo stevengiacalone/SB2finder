@@ -12,7 +12,7 @@ def download_stellar_model_grid(filename, Teff_target, Z_target):
         Z_target: Metallicity of the target star in dex (int or float)
     """
     
-    ranges = [[3500, Teff_target], [4.0, 5.0], [Z_target-0.1, Z_target+0.1]]
+    ranges = [[3500, Teff_target], [4.0, 5.5], [Z_target-0.1, Z_target+0.1]]
     download_PHOENIX_models(path="PHOENIX", ranges=ranges)
     grid = PHOENIXGridInterfaceNoAlpha(path="PHOENIX")
     creator = HDF5Creator(
