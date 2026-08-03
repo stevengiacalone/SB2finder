@@ -101,106 +101,106 @@ def binary_detect(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_t
     
     return df
     
-def parallel_func(idx_list, dRV_list, Teff_list, peak_list, n_injections, n_cores):
-    """
-    Function for parallelizing injection-recovery tests.
-    Args:
-        idx_list: Empty list to store index values in.
-        dRV_list: Empty list to store dRV values in.
-        Teff_list: Empty list to store Teff values in.
-        peak_list: Empty list to store peak arrays in.
-        params: 2D array containing inputs.
-        n_cores: Number of cores to use for parallelization.
-    """
-    i = np.arange(n_injections)
-    if n_cores > os.cpu_count():
-        n_cores = os.cpu_count()
+# def parallel_func(idx_list, dRV_list, Teff_list, peak_list, n_injections, n_cores):
+#     """
+#     Function for parallelizing injection-recovery tests.
+#     Args:
+#         idx_list: Empty list to store index values in.
+#         dRV_list: Empty list to store dRV values in.
+#         Teff_list: Empty list to store Teff values in.
+#         peak_list: Empty list to store peak arrays in.
+#         params: 2D array containing inputs.
+#         n_cores: Number of cores to use for parallelization.
+#     """
+#     i = np.arange(n_injections)
+#     if n_cores > os.cpu_count():
+#         n_cores = os.cpu_count()
+# #     with Pool(n_cores) as pool:
+# #         res = pool.starmap(calculate_CCF, params)
+# #         for r in res:
+# #             idx_list.append(r[0])
+# #             dRV_list.append(r[1])
+# #             Teff_list.append(r[2])
+# #             peak_list.append(r[3])
 #     with Pool(n_cores) as pool:
-#         res = pool.starmap(calculate_CCF, params)
+#         res = pool.imap_unordered(calculate_CCF, i)
 #         for r in res:
 #             idx_list.append(r[0])
 #             dRV_list.append(r[1])
 #             Teff_list.append(r[2])
 #             peak_list.append(r[3])
-    with Pool(n_cores) as pool:
-        res = pool.imap_unordered(calculate_CCF, i)
-        for r in res:
-            idx_list.append(r[0])
-            dRV_list.append(r[1])
-            Teff_list.append(r[2])
-            peak_list.append(r[3])
-        pool.close()
-    return
+#         pool.close()
+#     return
 
-def binary_detect_parallel(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_target, met_target, n_cores):
-    """
-    Injection-recovery tests, but parallelized. Specify number of cores to use with n_cores argument.
-    """
+# def binary_detect_parallel(file_name, mask_name, rv_shift_arr, t_eff, Teff_target, logg_target, met_target, n_cores):
+#     """
+#     Injection-recovery tests, but parallelized. Specify number of cores to use with n_cores argument.
+#     """
     
-    # Create results and spec directories, if they doesn't already exist
-    if os.path.isdir('results') == False:
-        os.mkdir("./results")
-    if os.path.isdir('spec') == False:
-        os.mkdir("./spec")
+#     # Create results and spec directories, if they doesn't already exist
+#     if os.path.isdir('results') == False:
+#         os.mkdir("./results")
+#     if os.path.isdir('spec') == False:
+#         os.mkdir("./spec")
     
-    # Get whole spectrum for observed star (KPF specific procedure)
-    full_spectra_wave, full_spectra_flux, full_flat_wave, full_flat_flux = stitch_spec(file_name)
-    np.savetxt("spec/flat_obs_spec.csv", np.array([full_flat_wave, full_flat_flux]), delimiter=",")
+#     # Get whole spectrum for observed star (KPF specific procedure)
+#     full_spectra_wave, full_spectra_flux, full_flat_wave, full_flat_flux = stitch_spec(file_name)
+#     np.savetxt("spec/flat_obs_spec.csv", np.array([full_flat_wave, full_flat_flux]), delimiter=",")
     
-    # Download PHOENIX model spectra grid
-    synth_file_name = "synth_spec.hdf5"
-    download_stellar_model_grid(synth_file_name, Teff_target, met_target)
+#     # Download PHOENIX model spectra grid
+#     synth_file_name = "synth_spec.hdf5"
+#     download_stellar_model_grid(synth_file_name, Teff_target, met_target)
     
-    # Get synthetic spectra file and save all to csv files
-    myHDF5 = HDF5Interface(synth_file_name)
+#     # Get synthetic spectra file and save all to csv files
+#     myHDF5 = HDF5Interface(synth_file_name)
     
-    # model of target star first
-    min_wave = full_flat_wave[0]
-    max_wave = full_flat_wave[-1]
-    synth_flux1 = myHDF5.load_flux(np.array([Teff_target, logg_target, met_target]))
-    synth_flux1 = synth_flux_correction(synth_flux1, Teff_target)
-    synth_wave1 = myHDF5.wl
-    synth_mask1 = (synth_wave1 > min_wave) & (synth_wave1 < max_wave)    
-    np.savetxt("spec/target_synth_spec.csv", np.array([synth_wave1[synth_mask1], synth_flux1[synth_mask1]]), delimiter=",")
+#     # model of target star first
+#     min_wave = full_flat_wave[0]
+#     max_wave = full_flat_wave[-1]
+#     synth_flux1 = myHDF5.load_flux(np.array([Teff_target, logg_target, met_target]))
+#     synth_flux1 = synth_flux_correction(synth_flux1, Teff_target)
+#     synth_wave1 = myHDF5.wl
+#     synth_mask1 = (synth_wave1 > min_wave) & (synth_wave1 < max_wave)    
+#     np.savetxt("spec/target_synth_spec.csv", np.array([synth_wave1[synth_mask1], synth_flux1[synth_mask1]]), delimiter=",")
 
-    for i in range(len(t_eff)):
-        if t_eff[i] <= 3900:
-            this_logg = 5.0
-        else:
-            this_logg = 4.5
-        synth_flux2 = myHDF5.load_flux(np.array([t_eff[i], this_logg, met_target]))
-        synth_flux2 = synth_flux_correction(synth_flux2, t_eff[i])
-        synth_wave2 = myHDF5.wl            
-        synth_mask2 = (synth_wave2 > min_wave) & (synth_wave2 < max_wave)
-        np.savetxt(f"spec/{int(t_eff[i])}_synth_spec.csv", np.array([synth_wave2[synth_mask2], synth_flux2[synth_mask2]]), delimiter=",")
+#     for i in range(len(t_eff)):
+#         if t_eff[i] <= 3900:
+#             this_logg = 5.0
+#         else:
+#             this_logg = 4.5
+#         synth_flux2 = myHDF5.load_flux(np.array([t_eff[i], this_logg, met_target]))
+#         synth_flux2 = synth_flux_correction(synth_flux2, t_eff[i])
+#         synth_wave2 = myHDF5.wl            
+#         synth_mask2 = (synth_wave2 > min_wave) & (synth_wave2 < max_wave)
+#         np.savetxt(f"spec/{int(t_eff[i])}_synth_spec.csv", np.array([synth_wave2[synth_mask2], synth_flux2[synth_mask2]]), delimiter=",")
     
-    # Prep loop variables
-    idx_list = []
-    dRV_list = []
-    Teff_list = []
-    peak_list = []
+#     # Prep loop variables
+#     idx_list = []
+#     dRV_list = []
+#     Teff_list = []
+#     peak_list = []
     
-    # Combine everything into a dataframe and save it
-    params = np.array(np.meshgrid(rv_shift_arr, t_eff)).T.reshape(-1, 2)
-    ccf_idx = np.arange(len(params))[:, None]
-    mask_name_arr = np.full_like(ccf_idx, mask_name, dtype=object)
-    params = np.concatenate([mask_name_arr,
-                             ccf_idx, 
-                             params], axis=1, dtype=object)
-    df = pd.DataFrame(params).rename(
-        columns={0: "mask", 
-                 1: "idx", 
-                 2: "dRV", 
-                 3: "Teff"}
-    )
-    df.to_csv("results/injections.csv")
+#     # Combine everything into a dataframe and save it
+#     params = np.array(np.meshgrid(rv_shift_arr, t_eff)).T.reshape(-1, 2)
+#     ccf_idx = np.arange(len(params))[:, None]
+#     mask_name_arr = np.full_like(ccf_idx, mask_name, dtype=object)
+#     params = np.concatenate([mask_name_arr,
+#                              ccf_idx, 
+#                              params], axis=1, dtype=object)
+#     df = pd.DataFrame(params).rename(
+#         columns={0: "mask", 
+#                  1: "idx", 
+#                  2: "dRV", 
+#                  3: "Teff"}
+#     )
+#     df.to_csv("results/injections.csv")
     
-    # Run parallel CCF calculation
-    n_injections = len(ccf_idx)
-    parallel_func(idx_list, dRV_list, Teff_list, peak_list, n_injections, n_cores)        
+#     # Run parallel CCF calculation
+#     n_injections = len(ccf_idx)
+#     parallel_func(idx_list, dRV_list, Teff_list, peak_list, n_injections, n_cores)        
             
-    # Save results
-    df_res = pd.DataFrame({"idx": idx_list, "dRV": dRV_list, "Teff": Teff_list, "peaks": peak_list})
-    df_res.to_csv("results/injrec_results.csv")
+#     # Save results
+#     df_res = pd.DataFrame({"idx": idx_list, "dRV": dRV_list, "Teff": Teff_list, "peaks": peak_list})
+#     df_res.to_csv("results/injrec_results.csv")
     
-    return df
+#     return df
