@@ -9,7 +9,7 @@ from numpy import interp
 def synth_flux_correction(flux, Teff):
     """
     Applies correction factor to PHOENIX spectra flux so that it corresponds to the
-    actual flux of the star. Correction factors scale as L/R^2 using the following table
+    actual flux of the star. Correction factors scale as R^2 using the following table
     https://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt
     Args:
         flux: Flux of synthetic spectrum (numpy array)
@@ -19,9 +19,8 @@ def synth_flux_correction(flux, Teff):
     """
     st_props = np.loadtxt("../../stellar_properties.txt", skiprows=1, usecols=[1,4,6]).T
     Teffs = st_props[0]
-    Lums = 10**(st_props[1])
     Rads = st_props[2]
-    corrections = Lums/Rads**2
+    corrections = Rads**2
     
     this_idx = np.argmin(np.abs(Teffs - Teff))
     this_correction = corrections[this_idx]
